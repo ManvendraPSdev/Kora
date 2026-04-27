@@ -8,4 +8,5 @@ export const chatService = {
       { method: "POST", body: JSON.stringify({ content }) },
       token
     ),
+    
 };

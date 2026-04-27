@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { authService } from "../../services/auth.service";
 
+
 const STORAGE_KEY = "support-platform-auth";
 
 function decodeJwt(token) {

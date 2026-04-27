@@ -3,6 +3,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { AuthView, WorkspaceView } from "./ui/AppView";
 
+
 function initialForms() {
   return {
     login: { email: "", password: "" },

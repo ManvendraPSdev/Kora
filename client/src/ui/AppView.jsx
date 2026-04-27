@@ -4,6 +4,7 @@ const statusOptions = ["open", "in_progress", "escalated", "resolved", "closed"]
 const priorityOptions = ["low", "medium", "high", "urgent"];
 const userRoleOptions = ["agent", "customer", "admin"];
 
+
 function Field({ label, value, onChange, type = "text" }) {
   return (
     <label className="grid gap-1 text-sm">

@@ -9,6 +9,7 @@ export const authService = {
     apiRequest("/auth/forgot-password", {
       method: "POST",
       body: JSON.stringify({ email }),
+      
     }),
   resetPassword: (body) =>
     apiRequest("/auth/reset-password", { method: "POST", body: JSON.stringify(body) }),
