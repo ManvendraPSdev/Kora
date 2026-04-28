@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { AuthView, WorkspaceView } from "./ui/AppView";
@@ -22,11 +22,19 @@ export default function AppNew() {
   const [forms, setForms] = useState(initialForms);
   const auth = useAuth();
   const workspace = useWorkspace();
-  const { bootstrap } = workspace;
+  const bootstrapWorkspace = workspace.bootstrap;
+  const bootstrappedTokenRef = useRef("");
 
   useEffect(() => {
-    if (auth.token) bootstrap();
-  }, [auth.token, bootstrap]);
+    if (!auth.token) {
+      bootstrappedTokenRef.current = "";
+      return;
+    }
+    if (bootstrappedTokenRef.current === auth.token) return;
+
+    bootstrappedTokenRef.current = auth.token;
+    bootstrapWorkspace().catch(() => {});
+  }, [auth.token, bootstrapWorkspace]);
 
   const role = auth.user?.role;
 
