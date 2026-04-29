@@ -14,7 +14,7 @@ npm run dev
 Base URL:
 
 ```bash
-export BASE_URL="http://localhost:5000/api/v1"
+export BASE_URL="http://localhost:3000/api/v1"
 ```
 
 ---
@@ -286,7 +286,7 @@ curl -X GET "$BASE_URL/analytics/overview" \
 ## 10) Health Check
 
 ```bash
-curl -X GET "http://localhost:5000/health"
+curl -X GET "http://localhost:3000/health"
 ```
 
 ---

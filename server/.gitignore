@@ -14,6 +14,11 @@ lerna-debug.log*
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
+# Mac files
+.DS_Store
+**/.DS_Store
+
+
 # Runtime data
 pids
 *.pid
