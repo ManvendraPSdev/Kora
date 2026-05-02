@@ -4,6 +4,10 @@ export const authService = {
   login: (body) => apiRequest("/auth/login", { method: "POST", body: JSON.stringify(body) }),
   register: (body) =>
     apiRequest("/auth/register", { method: "POST", body: JSON.stringify(body) }),
+  customerRegister: (body) =>
+    apiRequest("/auth/customer/register", { method: "POST", body: JSON.stringify(body) }),
+  agentRegister: (body) =>
+    apiRequest("/auth/agent/register", { method: "POST", body: JSON.stringify(body) }),
   logout: (token) => apiRequest("/auth/logout", { method: "POST" }, token),
   forgotPassword: (email) =>
     apiRequest("/auth/forgot-password", {

@@ -26,8 +26,19 @@ const register = asyncHandler(async (req, res) => {
 });
 
 const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-  const user = await User.findOne({ email }).select("+passwordHash");
+  const { email, password, tenantSlug, companyName, role } = req.body;
+  let tenant;
+  if (role === "customer") {
+    const nameQuery = typeof companyName === "string" ? companyName.trim() : "";
+    if (!nameQuery) return res.status(401).json(ApiResponse.error("Invalid credentials"));
+    tenant = await Tenant.findOne({ name: nameQuery, isActive: true });
+  } else {
+    const slugQuery = typeof tenantSlug === "string" ? tenantSlug.trim() : "";
+    if (!slugQuery) return res.status(401).json(ApiResponse.error("Invalid credentials"));
+    tenant = await Tenant.findOne({ slug: slugQuery, isActive: true });
+  }
+  if (!tenant) return res.status(401).json(ApiResponse.error("Invalid credentials"));
+  const user = await User.findOne({ email, tenantId: tenant._id }).select("+passwordHash");
   if (!user || !user.isActive) return res.status(401).json(ApiResponse.error("Invalid credentials"));
   const isMatch = await bcrypt.compare(password, user.passwordHash);
   if (!isMatch) return res.status(401).json(ApiResponse.error("Invalid credentials"));
@@ -35,6 +46,70 @@ const login = asyncHandler(async (req, res) => {
   const refreshToken = generateRefreshToken({ id: user._id });
   res.cookie("refreshToken", refreshToken, { httpOnly: true, sameSite: "strict", secure: process.env.NODE_ENV === "production" });
   return res.status(200).json(ApiResponse.success("Login successful", { accessToken, user }));
+});
+
+const customerRegister = asyncHandler(async (req, res) => {
+  const { name, email, password, companyName } = req.body;
+  const nameQuery = typeof companyName === "string" ? companyName.trim() : "";
+  if (!nameQuery) return res.status(404).json(ApiResponse.error("Business not found"));
+  const tenant = await Tenant.findOne({ name: nameQuery, isActive: true });
+  if (!tenant) return res.status(404).json(ApiResponse.error("Business not found"));
+  const existing = await User.findOne({ email, tenantId: tenant._id });
+  if (existing) return res.status(409).json(ApiResponse.error("Email already registered"));
+  const passwordHash = await bcrypt.hash(password, 12);
+  const user = await User.create({
+    tenantId: tenant._id,
+    name,
+    email,
+    passwordHash,
+    role: "customer",
+  });
+  const accessToken = generateAccessToken({ id: user._id, tenantId: user.tenantId, role: user.role });
+  const refreshToken = generateRefreshToken({ id: user._id });
+  res.cookie("refreshToken", refreshToken, { httpOnly: true, sameSite: "strict", secure: process.env.NODE_ENV === "production" });
+  return res.status(201).json(
+    ApiResponse.success("Registered successfully", {
+      accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId,
+      },
+    })
+  );
+});
+
+const agentRegister = asyncHandler(async (req, res) => {
+  const { name, email, password, tenantSlug } = req.body;
+  const tenant = await Tenant.findOne({ slug: tenantSlug, isActive: true });
+  if (!tenant) return res.status(404).json(ApiResponse.error("Business not found"));
+  const existing = await User.findOne({ email, tenantId: tenant._id });
+  if (existing) return res.status(409).json(ApiResponse.error("Email already registered"));
+  const passwordHash = await bcrypt.hash(password, 12);
+  const user = await User.create({
+    tenantId: tenant._id,
+    name,
+    email,
+    passwordHash,
+    role: "agent",
+  });
+  const accessToken = generateAccessToken({ id: user._id, tenantId: user.tenantId, role: user.role });
+  const refreshToken = generateRefreshToken({ id: user._id });
+  res.cookie("refreshToken", refreshToken, { httpOnly: true, sameSite: "strict", secure: process.env.NODE_ENV === "production" });
+  return res.status(201).json(
+    ApiResponse.success("Registered successfully", {
+      accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        tenantId: user.tenantId,
+      },
+    })
+  );
 });
 
 const refresh = asyncHandler(async (req, res) => {
@@ -73,4 +148,13 @@ const resetPassword = asyncHandler(async (req, res) => {
   return res.status(200).json(ApiResponse.success("Password reset successful"));
 });
 
-module.exports = { register, login, refresh, logout, forgotPassword, resetPassword };
+module.exports = {
+  register,
+  login,
+  customerRegister,
+  agentRegister,
+  refresh,
+  logout,
+  forgotPassword,
+  resetPassword,
+};

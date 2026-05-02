@@ -72,6 +72,15 @@ function AuthView({
   onResetPassword,
   setForms,
 }) {
+  const role = forms.authRole || "admin";
+
+  const registerSubmitLabel =
+    authMode === "login"
+      ? "Login"
+      : role === "admin"
+        ? "Create Tenant"
+        : "Register";
+
   return (
     <div className="mx-auto max-w-md space-y-4 py-10">
       <Section title="Sign In / Register">
@@ -84,13 +93,66 @@ function AuthView({
           </button>
         </div>
         <form className="grid gap-2" onSubmit={onAuthSubmit}>
-          {authMode === "register" && (
+          <label className="grid gap-1 text-sm">
+            <span>Role</span>
+            <select
+              className="rounded border border-slate-300 px-3 py-2"
+              value={role}
+              onChange={(event) => setForms((s) => ({ ...s, authRole: event.target.value }))}
+            >
+              <option value="admin">Admin</option>
+              <option value="agent">Agent</option>
+              <option value="customer">Customer</option>
+            </select>
+          </label>
+
+          {error ? <p className="text-sm text-rose-700">{error}</p> : null}
+
+          {authMode === "login" && role !== "customer" && (
+            <Field
+              label="Company slug"
+              value={forms.login.tenantSlug}
+              onChange={(v) => setForms((s) => ({ ...s, login: { ...s.login, tenantSlug: v } }))}
+            />
+          )}
+          {authMode === "login" && role === "customer" && (
+            <Field
+              label="Company name"
+              value={forms.login.companyName}
+              onChange={(v) => setForms((s) => ({ ...s, login: { ...s.login, companyName: v } }))}
+            />
+          )}
+
+          {authMode === "register" && role === "admin" && (
             <>
               <Field label="Business" value={forms.register.businessName} onChange={(v) => setForms((s) => ({ ...s, register: { ...s.register, businessName: v } }))} />
               <Field label="Slug" value={forms.register.slug} onChange={(v) => setForms((s) => ({ ...s, register: { ...s.register, slug: v } }))} />
               <Field label="Admin Name" value={forms.register.adminName} onChange={(v) => setForms((s) => ({ ...s, register: { ...s.register, adminName: v } }))} />
             </>
           )}
+
+          {authMode === "register" && role === "agent" && (
+            <>
+              <Field label="Name" value={forms.register.name} onChange={(v) => setForms((s) => ({ ...s, register: { ...s.register, name: v } }))} />
+              <Field
+                label="Company slug"
+                value={forms.register.tenantSlug}
+                onChange={(v) => setForms((s) => ({ ...s, register: { ...s.register, tenantSlug: v } }))}
+              />
+            </>
+          )}
+
+          {authMode === "register" && role === "customer" && (
+            <>
+              <Field label="Name" value={forms.register.name} onChange={(v) => setForms((s) => ({ ...s, register: { ...s.register, name: v } }))} />
+              <Field
+                label="Company name"
+                value={forms.register.companyName}
+                onChange={(v) => setForms((s) => ({ ...s, register: { ...s.register, companyName: v } }))}
+              />
+            </>
+          )}
+
           <Field
             label="Email"
             type="email"
@@ -114,7 +176,7 @@ function AuthView({
             }
           />
           <button className="button-primary" disabled={loading} type="submit">
-            {loading ? "Please wait..." : authMode === "login" ? "Login" : "Create Tenant"}
+            {loading ? "Please wait..." : registerSubmitLabel}
           </button>
         </form>
       </Section>

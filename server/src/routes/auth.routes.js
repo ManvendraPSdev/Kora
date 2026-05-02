@@ -1,6 +1,8 @@
 const router = require("express").Router();
 const controller = require("../controllers/auth.controller");
 
+router.post("/customer/register", controller.customerRegister);
+router.post("/agent/register", controller.agentRegister);
 router.post("/register", controller.register);
 router.post("/login", controller.login);
 router.post("/refresh", controller.refresh);

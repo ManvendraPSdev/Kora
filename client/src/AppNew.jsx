@@ -2,12 +2,23 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useWorkspace } from "./hooks/useWorkspace";
 import { AuthView, WorkspaceView } from "./ui/AppView";
+import { authService } from "./services/auth.service";
 
 
 function initialForms() {
   return {
-    login: { email: "", password: "" },
-    register: { businessName: "", slug: "", adminName: "", email: "", password: "" },
+    authRole: "admin",
+    login: { email: "", password: "", tenantSlug: "", companyName: "" },
+    register: {
+      businessName: "",
+      slug: "",
+      adminName: "",
+      name: "",
+      tenantSlug: "",
+      companyName: "",
+      email: "",
+      password: "",
+    },
     ticket: { title: "", description: "", priority: "medium", customerId: "" },
     message: "",
     kb: { title: "", content: "", tags: "" },
@@ -41,8 +52,62 @@ export default function AppNew() {
   const handleAuthSubmit = async (event) => {
     event.preventDefault();
     workspace.clearFlash();
-    if (authMode === "login") await auth.login(forms.login);
-    else await auth.register(forms.register);
+    const { authRole } = forms;
+
+    if (authMode === "login") {
+      const { email, password, tenantSlug, companyName } = forms.login;
+      if (authRole === "customer") {
+        await auth.login({ email, password, companyName, role: "customer" });
+      } else {
+        await auth.login({
+          email,
+          password,
+          tenantSlug,
+          role: authRole === "admin" ? "admin" : "agent",
+        });
+      }
+      return;
+    }
+
+    if (authRole === "admin") {
+      await auth.register({
+        businessName: forms.register.businessName,
+        slug: forms.register.slug,
+        adminName: forms.register.adminName,
+        email: forms.register.email,
+        password: forms.register.password,
+      });
+      return;
+    }
+
+    if (authRole === "agent") {
+      await authService.agentRegister({
+        name: forms.register.name,
+        email: forms.register.email,
+        password: forms.register.password,
+        tenantSlug: forms.register.tenantSlug,
+      });
+      await auth.login({
+        email: forms.register.email,
+        password: forms.register.password,
+        tenantSlug: forms.register.tenantSlug,
+        role: "agent",
+      });
+      return;
+    }
+
+    await authService.customerRegister({
+      name: forms.register.name,
+      email: forms.register.email,
+      password: forms.register.password,
+      companyName: forms.register.companyName,
+    });
+    await auth.login({
+      email: forms.register.email,
+      password: forms.register.password,
+      companyName: forms.register.companyName,
+      role: "customer",
+    });
   };
 
   const handleCreateTicket = async (event) => {
