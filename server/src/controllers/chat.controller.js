@@ -4,6 +4,7 @@ const Ticket = require("../models/Ticket.model");
 const Tenant = require("../models/Tenant.model");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiResponse = require("../utils/apiResponse");
+const redis = require("../config/redis");
 const { handleCustomerQuery } = require("../services/ai.service");
 
 const startSession = asyncHandler(async (req, res) => {
@@ -56,4 +57,17 @@ const sendMessage = asyncHandler(async (req, res) => {
   return res.status(200).json(ApiResponse.success("Message sent", { userMessage, aiMessage }));
 });
 
-module.exports = { startSession, sendMessage };
+const closeSession = asyncHandler(async (req, res) => {
+  const session = await ChatSession.findOneAndUpdate(
+    { _id: req.params.id, tenantId: req.tenantId, customerId: req.user.id },
+    { status: "closed", closedAt: new Date() },
+    { new: true }
+  );
+  if (!session) return res.status(404).json(ApiResponse.error("Session not found"));
+  try {
+    await redis.del(`chat:history:${req.params.id}`);
+  } catch (_err) {}
+  return res.status(200).json(ApiResponse.success("Session closed", { session }));
+});
+
+module.exports = { startSession, sendMessage, closeSession };
