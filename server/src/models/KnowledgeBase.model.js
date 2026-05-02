@@ -12,4 +12,7 @@ const knowledgeBaseSchema = new mongoose.Schema(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
+knowledgeBaseSchema.index({ tenantId: 1, isActive: 1 });
+knowledgeBaseSchema.index({ tenantId: 1, createdAt: -1 });
+
 module.exports = mongoose.model("KnowledgeBase", knowledgeBaseSchema);

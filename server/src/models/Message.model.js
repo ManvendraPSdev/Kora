@@ -15,6 +15,9 @@ const messageSchema = new mongoose.Schema(
   { timestamps: { createdAt: true, updatedAt: false } }
 );
 
+messageSchema.index({ ticketId: 1, createdAt: 1 });
+messageSchema.index({ chatSessionId: 1, createdAt: 1 });
+messageSchema.index({ tenantId: 1, isAiGenerated: 1 });
 messageSchema.index({ tenantId: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Message", messageSchema);

@@ -25,5 +25,10 @@ const ticketSchema = new mongoose.Schema(
 );
 
 ticketSchema.index({ tenantId: 1, status: 1 });
+ticketSchema.index({ tenantId: 1, assignedAgentId: 1 });
+ticketSchema.index({ tenantId: 1, customerId: 1 });
+ticketSchema.index({ tenantId: 1, priority: 1 });
+ticketSchema.index({ tenantId: 1, createdAt: -1 });
+ticketSchema.index({ tenantId: 1, aiHandled: 1 });
 
 module.exports = mongoose.model("Ticket", ticketSchema);

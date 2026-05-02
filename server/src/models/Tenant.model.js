@@ -16,4 +16,6 @@ const tenantSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+tenantSchema.index({ isActive: 1 });
+
 module.exports = mongoose.model("Tenant", tenantSchema);

@@ -19,6 +19,10 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ tenantId: 1, role: 1 });
+userSchema.index({ tenantId: 1, isActive: 1 });
+userSchema.index({ tenantId: 1, role: 1, isActive: 1 });
 userSchema.index({ tenantId: 1, email: 1 }, { unique: true });
 
 module.exports = mongoose.model("User", userSchema);
