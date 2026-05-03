@@ -1,0 +1,115 @@
+/* ============================================================
+   KORA — Utility Classes (Premium Edition)
+   ============================================================ */
+
+/* ── Layout ─────────────────────────────────────────────── */
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.absolute-fill {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── Text ────────────────────────────────────────────────── */
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+
+/* ── Animations ──────────────────────────────────────────── */
+@keyframes kora-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.animate-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  animation: kora-shimmer 2s infinite;
+}
+
+@keyframes kora-pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px var(--brand-glow); }
+  50% { box-shadow: 0 0 20px var(--brand-glow); }
+}
+
+.animate-pulse-glow {
+  animation: kora-pulse-glow 2s infinite ease-in-out;
+}
+
+/* ── Interactive ─────────────────────────────────────────── */
+.hover-lift {
+  transition: transform var(--ease-spring);
+}
+.hover-lift:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+
+.click-scale {
+  transition: transform var(--ease-default);
+}
+.click-scale:active {
+  transform: scale(0.95);
+}
+
+/* ── Glass ───────────────────────────────────────────────── */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ── Borders ─────────────────────────────────────────────── */
+.border-gradient {
+  border: 1px solid transparent;
+  background: linear-gradient(var(--surface), var(--surface)) padding-box,
+              linear-gradient(135deg, var(--brand), var(--accent)) border-box;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────── */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ── Auth Orbs ──────────────────────────────────────────── */
+.auth-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  pointer-events: none;
+  opacity: 0.15;
+  z-index: 0;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0); }
+  33% { transform: translate(30px, -50px); }
+  66% { transform: translate(-20px, 20px); }
+}
+
+.orb-1 { width: 500px; height: 500px; background: var(--brand); animation: float 15s infinite; }
+.orb-2 { width: 400px; height: 400px; background: var(--accent); animation: float 18s infinite reverse; }
+

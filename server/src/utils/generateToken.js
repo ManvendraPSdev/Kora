@@ -22,3 +22,5 @@ module.exports = {
   verifyAccessToken,
   verifyRefreshToken,
 };
+
+console.log("ACCESS:", process.env.JWT_ACCESS_SECRET);
