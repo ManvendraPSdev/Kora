@@ -49,65 +49,73 @@ export default function AppNew() {
 
   const role = auth.user?.role;
 
+  const [localError, setLocalError] = useState("");
+
   const handleAuthSubmit = async (event) => {
     event.preventDefault();
     workspace.clearFlash();
+    setLocalError("");
     const { authRole } = forms;
 
-    if (authMode === "login") {
-      const { email, password, tenantSlug, companyName } = forms.login;
-      if (authRole === "customer") {
-        await auth.login({ email, password, companyName, role: "customer" });
-      } else {
-        await auth.login({
-          email,
-          password,
-          tenantSlug,
-          role: authRole === "admin" ? "admin" : "agent",
-        });
+    try {
+      if (authMode === "login") {
+        const { email, password, tenantSlug, companyName } = forms.login;
+        if (authRole === "customer") {
+          await auth.login({ email, password, companyName, role: "customer" });
+        } else {
+          await auth.login({
+            email,
+            password,
+            tenantSlug,
+            role: authRole === "admin" ? "admin" : "agent",
+          });
+        }
+        return;
       }
-      return;
-    }
 
-    if (authRole === "admin") {
-      await auth.register({
-        businessName: forms.register.businessName,
-        slug: forms.register.slug,
-        adminName: forms.register.adminName,
-        email: forms.register.email,
-        password: forms.register.password,
-      });
-      return;
-    }
+      if (authRole === "admin") {
+        await auth.register({
+          businessName: forms.register.businessName,
+          slug: forms.register.slug,
+          adminName: forms.register.adminName,
+          email: forms.register.email,
+          password: forms.register.password,
+        });
+        return;
+      }
 
-    if (authRole === "agent") {
-      await authService.agentRegister({
+      if (authRole === "agent") {
+        await authService.agentRegister({
+          name: forms.register.name,
+          email: forms.register.email,
+          password: forms.register.password,
+          tenantSlug: forms.register.tenantSlug,
+        });
+        await auth.login({
+          email: forms.register.email,
+          password: forms.register.password,
+          tenantSlug: forms.register.tenantSlug,
+          role: "agent",
+        });
+        return;
+      }
+
+      // Customer Registration
+      await authService.customerRegister({
         name: forms.register.name,
         email: forms.register.email,
         password: forms.register.password,
-        tenantSlug: forms.register.tenantSlug,
+        companyName: forms.register.companyName,
       });
       await auth.login({
         email: forms.register.email,
         password: forms.register.password,
-        tenantSlug: forms.register.tenantSlug,
-        role: "agent",
+        companyName: forms.register.companyName,
+        role: "customer",
       });
-      return;
+    } catch (err) {
+      setLocalError(err.message || "Authentication failed");
     }
-
-    await authService.customerRegister({
-      name: forms.register.name,
-      email: forms.register.email,
-      password: forms.register.password,
-      companyName: forms.register.companyName,
-    });
-    await auth.login({
-      email: forms.register.email,
-      password: forms.register.password,
-      companyName: forms.register.companyName,
-      role: "customer",
-    });
   };
 
   const handleCreateTicket = async (event) => {
@@ -145,7 +153,7 @@ export default function AppNew() {
         authMode={authMode}
         setAuthMode={setAuthMode}
         loading={auth.loading || workspace.loading}
-        error={auth.error || workspace.error}
+        error={auth.error || workspace.error || localError}
         forms={forms}
         onAuthSubmit={handleAuthSubmit}
         onForgotPassword={() => workspace.forgotPassword(forms.reset.email)}

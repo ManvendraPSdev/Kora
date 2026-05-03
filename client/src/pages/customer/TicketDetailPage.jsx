@@ -3,6 +3,12 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { io } from "socket.io-client";
 import axiosInstance from "../../api/axiosInstance";
+import Toast from "../../components/common/Toast";
+import Spinner from "../../components/common/Spinner";
+import Badge from "../../components/common/Badge";
+import ChatBubble from "../../components/ui/ChatBubble";
+import Button from "../../components/common/Button";
+import EmptyState from "../../components/common/EmptyState";
 
 function getSocketBaseUrl() {
   const base =
@@ -33,8 +39,7 @@ export default function TicketDetailPage() {
   const socketRef = useRef(null);
   const bottomRef = useRef(null);
 
-  const ticketClosed =
-    ticket && (ticket.status === "closed" || ticket.status === "resolved");
+  const ticketClosed = ticket && (ticket.status === "closed" || ticket.status === "resolved");
 
   useEffect(() => {
     if (!token) navigate("/");
@@ -43,9 +48,7 @@ export default function TicketDetailPage() {
 
   useEffect(() => {
     if (!id || !token) return undefined;
-
     let cancelled = false;
-
     (async () => {
       try {
         const [tRes, mRes] = await Promise.all([
@@ -55,34 +58,20 @@ export default function TicketDetailPage() {
         if (cancelled) return;
         setTicket(tRes.data?.data?.ticket ?? null);
         setMessages(mRes.data?.data?.messages ?? []);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      } catch (e) { console.error(e); }
+      finally { if (!cancelled) setLoading(false); }
     })();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [id, token]);
 
   useEffect(() => {
     if (!id || !token) return undefined;
-
     const base = getSocketBaseUrl();
     const socket = io(base, { withCredentials: true, transports: ["websocket", "polling"] });
     socketRef.current = socket;
-
-    const onConnect = () => {
-      socket.emit("ticket:join", { ticketId: id });
-    };
-
+    const onConnect = () => { socket.emit("ticket:join", { ticketId: id }); };
     socket.on("connect", onConnect);
-    if (socket.connected) {
-      socket.emit("ticket:join", { ticketId: id });
-    }
-
+    if (socket.connected) socket.emit("ticket:join", { ticketId: id });
     const onNewMsg = (payload) => {
       const msg = payload?.message;
       if (!msg || String(msg.ticketId) !== String(id)) return;
@@ -91,15 +80,12 @@ export default function TicketDetailPage() {
         return [...prev, msg];
       });
     };
-
     const onAgentReplied = () => {
       setToastAgent("Agent has replied to your ticket");
       window.setTimeout(() => setToastAgent(null), 4000);
     };
-
     socket.on("ticket:message:new", onNewMsg);
     socket.on("ticket:agent:replied", onAgentReplied);
-
     return () => {
       socket.off("connect", onConnect);
       socket.off("ticket:message:new", onNewMsg);
@@ -123,32 +109,8 @@ export default function TicketDetailPage() {
       setBody("");
       const res = await axiosInstance.get(`/tickets/${id}/messages`);
       setMessages(res.data?.data?.messages ?? []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setSending(false);
-    }
-  }
-
-  function priorityUI(p) {
-    const map = {
-      urgent: "🔴",
-      high: "🟠",
-      medium: "🟡",
-      low: "⚪",
-    };
-    return map[p] || p;
-  }
-
-  function statusUI(s) {
-    const labels = {
-      open: "Open 🔴",
-      in_progress: "In Progress 🟡",
-      escalated: "Escalated 🟣",
-      resolved: "Resolved 🟢",
-      closed: "Closed ⚫",
-    };
-    return labels[s] || s;
+    } catch (e) { console.error(e); }
+    finally { setSending(false); }
   }
 
   const assignedName =
@@ -156,136 +118,129 @@ export default function TicketDetailPage() {
       ? ticket.assignedAgentId.name
       : "—";
 
-  const senderDisplay = (msg) => {
-    if (msg.senderRole === "ai") return "AI";
-    return msg.senderId?.name || msg.senderRole;
-  };
-
+  /* ── Loading ── */
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p className="text-slate-600">Loading…</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--bg-gradient)" }}>
+        <Spinner size="lg" />
       </div>
     );
   }
 
+  /* ── Not found ── */
   if (!ticket) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p className="text-rose-700">Ticket not found.</p>
-        <Link to="/my-tickets" className="mt-4 inline-block text-blue-600 underline">
-          Back to My Tickets
-        </Link>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "var(--bg-gradient)" }}>
+        <div className="card p-8 max-w-sm w-full text-center">
+          <p className="text-4xl mb-3">🔍</p>
+          <p className="font-semibold text-lg mb-1" style={{ color: "var(--text)" }}>Ticket not found</p>
+          <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>This ticket may have been removed or you don't have access.</p>
+          <Link to="/my-tickets">
+            <Button variant="primary" size="md">← Back to My Tickets</Button>
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-24">
-      {toastAgent ? (
-        <div className="fixed right-4 top-4 z-50 rounded-lg bg-emerald-800 px-4 py-2 text-sm text-white shadow-lg">
-          {toastAgent}
+    <div className="min-h-screen flex flex-col" style={{ background: "var(--bg-gradient)" }}>
+      <Toast message={toastAgent} variant="success" visible={!!toastAgent} />
+
+      {/* Page header */}
+      <header
+        className="sticky top-0 z-10 flex items-center gap-3 px-5 py-3 border-b"
+        style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+      >
+        <div
+          className="flex h-8 w-8 items-center justify-center rounded-lg font-bold text-sm text-white shrink-0"
+          style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-dark))" }}
+        >
+          K
         </div>
-      ) : null}
-
-      <div className="mx-auto max-w-3xl px-4 pt-6">
-        <Link to="/my-tickets" className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-blue-700 hover:underline">
-          ← Back to My Tickets
+        <span className="font-bold text-base" style={{ color: "var(--text)" }}>Kora</span>
+        <span className="mx-1" style={{ color: "var(--border)" }}>/</span>
+        <Link
+          to="/my-tickets"
+          className="text-sm font-medium hover:underline"
+          style={{ color: "var(--brand)" }}
+        >
+          My Tickets
         </Link>
+        <span className="mx-1" style={{ color: "var(--border)" }}>/</span>
+        <span className="font-mono text-xs font-bold" style={{ color: "var(--text-muted)" }}>
+          {ticket.ticketNumber}
+        </span>
+      </header>
 
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="font-mono text-sm font-semibold text-slate-800">{ticket.ticketNumber}</p>
-          <h1 className="mt-1 text-xl font-bold text-slate-900">“{ticket.title}”</h1>
-          <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">
-            <span>
-              Status: <strong>{statusUI(ticket.status)}</strong>
-            </span>
-            <span>
-              Priority: <strong>{priorityUI(ticket.priority)}</strong>
+      <div className="mx-auto max-w-2xl w-full px-4 py-6 flex flex-col gap-4 pb-32">
+        {/* Ticket info card */}
+        <div className="card p-5 animate-fade-in">
+          <p className="font-mono text-xs font-bold mb-1" style={{ color: "var(--text-muted)" }}>
+            {ticket.ticketNumber}
+          </p>
+          <h1 className="text-xl font-bold leading-snug mb-3" style={{ color: "var(--text)" }}>
+            {ticket.title}
+          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge value={ticket.status} type="status" />
+            <Badge value={ticket.priority} type="priority" />
+            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+              Assigned to: <strong style={{ color: "var(--text)" }}>{assignedName}</strong>
             </span>
           </div>
-          <p className="mt-2 text-sm text-slate-700">
-            Assigned to: <strong>{assignedName}</strong>
-          </p>
         </div>
 
-        <div className="mt-6 space-y-4 rounded-xl border border-slate-200 bg-white p-4">
-          {messages.map((msg) => {
-            const isCustomer = msg.senderRole === "customer";
-            const isAi = msg.senderRole === "ai";
-            const isAgent = msg.senderRole === "agent" || msg.senderRole === "admin";
-
-            let row = "flex w-full ";
-            let bubble = "max-w-[85%] rounded-lg px-3 py-2 text-sm ";
-
-            if (isCustomer) {
-              row += "justify-end";
-              bubble += "bg-blue-600 text-white";
-            } else if (isAi) {
-              row += "justify-start";
-              bubble += "bg-purple-50 text-slate-900 ring-1 ring-purple-200";
-            } else if (isAgent) {
-              row += "justify-start";
-              bubble += "bg-gray-100 text-gray-900";
-            } else {
-              row += "justify-start";
-              bubble += "bg-gray-100 text-gray-900";
-            }
-
-            return (
-              <div key={msg._id} className={row}>
-                <div className={bubble}>
-                  <div className="mb-1 flex flex-wrap items-center gap-2 text-[10px] opacity-90">
-                    {isAi ? (
-                      <span className="font-semibold">🤖 AI</span>
-                    ) : (
-                      <span className="font-semibold">
-                        [{isCustomer ? "YOU" : isAgent ? "AGENT" : msg.senderRole?.toUpperCase()}]{" "}
-                        {senderDisplay(msg)}
-                      </span>
-                    )}
-                    {isAi && msg.aiConfidence != null ? (
-                      <span className="rounded bg-purple-200 px-1 text-[9px]">
-                        {Math.round(Number(msg.aiConfidence) * 100)}% confident
-                      </span>
-                    ) : null}
-                    <span>{formatTime(msg.createdAt)}</span>
-                  </div>
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                </div>
-              </div>
-            );
-          })}
+        {/* Message thread */}
+        <div className="card p-4 flex flex-col gap-4 animate-fade-in">
+          {messages.length === 0 ? (
+            <EmptyState icon="💬" title="No messages yet" description="Send a message below to start the conversation." />
+          ) : (
+            messages.map((msg) => (
+              <ChatBubble key={msg._id} message={msg} currentRole="customer" />
+            ))
+          )}
           <div ref={bottomRef} />
         </div>
 
-        {ticketClosed ? (
-          <p className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            This ticket is closed. Open a new ticket if you need further help.
-          </p>
-        ) : (
-          <form onSubmit={handleSend} className="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white p-4 shadow-lg">
-            <div className="mx-auto max-w-3xl">
-              <textarea
-                rows={3}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Describe your issue further or reply to the agent..."
-                className="mb-2 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={sending || !body.trim()}
-                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                >
-                  {sending ? "Sending…" : "Send Message →"}
-                </button>
-              </div>
-            </div>
-          </form>
+        {ticketClosed && (
+          <div
+            className="rounded-xl px-4 py-3 text-sm font-medium"
+            style={{ background: "var(--status-progress-bg)", color: "var(--status-progress-text)", border: "1px solid var(--status-progress-border)" }}
+          >
+            This ticket is closed. Please open a new ticket if you need further help.
+          </div>
         )}
       </div>
+
+      {/* Fixed reply bar */}
+      {!ticketClosed && (
+        <div
+          className="fixed bottom-0 left-0 right-0 border-t p-4 shadow-lg"
+          style={{ background: "var(--surface)", borderColor: "var(--border)" }}
+        >
+          <form onSubmit={handleSend} className="mx-auto max-w-2xl flex flex-col gap-2">
+            <textarea
+              rows={3}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Describe your issue further or reply to the agent..."
+              className="field-input resize-none"
+            />
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                variant="primary"
+                size="md"
+                loading={sending}
+                disabled={sending || !body.trim()}
+              >
+                Send Message →
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }
