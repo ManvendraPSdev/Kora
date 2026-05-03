@@ -53,6 +53,7 @@ export default function AgentDashboard() {
   const [showBellDropdown, setShowBellDropdown] = useState(false);
   const [toastText, setToastText] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [messagesLoading, setMessagesLoading] = useState(false);
 
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -107,35 +108,69 @@ export default function AgentDashboard() {
   }, [user?.id, token, fetchTickets]);
 
   useEffect(() => {
-    if (!selectedTicket?._id || !socketConnected) return undefined;
-    const socket = socketRef.current;
+    if (!selectedTicket?._id) return undefined;
     const tid = String(selectedTicket._id);
+    
     const loadMessages = async () => {
       try {
+        setMessagesLoading(true);
         const res = await axiosInstance.get(`/tickets/${tid}/messages`);
         setMessages(res.data?.data?.messages ?? []);
-      } catch (e) { console.error(e); }
-    };
-    loadMessages();
-    if (socket) socket.emit("ticket:join", { ticketId: tid });
-    const onNewMsg = (payload) => {
-      const msg = payload?.message;
-      if (!msg) return;
-      const mtid = msg.ticketId ? String(msg.ticketId) : "";
-      if (mtid && mtid !== tid) return;
-      setMessages((prev) => {
-        if (prev.some((m) => String(m._id) === String(msg._id))) return prev;
-        return [...prev, msg];
-      });
-    };
-    if (socket) socket.on("ticket:message:new", onNewMsg);
-    return () => {
-      if (socket) {
-        socket.off("ticket:message:new", onNewMsg);
-        socket.emit("ticket:leave", { ticketId: tid });
+      } catch (e) { 
+        console.error(e); 
+      } finally {
+        setMessagesLoading(false);
       }
     };
+    
+    loadMessages();
+    
+    const socket = socketRef.current;
+    if (socket && socketConnected) {
+      socket.emit("ticket:join", { ticketId: tid });
+      
+      const onNewMsg = (payload) => {
+        const msg = payload?.message;
+        if (!msg) return;
+        const mtid = msg.ticketId ? String(msg.ticketId) : "";
+        if (mtid && mtid !== tid) return;
+        setMessages((prev) => {
+          if (prev.some((m) => String(m._id) === String(msg._id))) return prev;
+          return [...prev, msg];
+        });
+      };
+      
+      socket.on("ticket:message:new", onNewMsg);
+      
+      return () => {
+        socket.off("ticket:message:new", onNewMsg);
+        socket.emit("ticket:leave", { ticketId: tid });
+      };
+    }
   }, [selectedTicket?._id, socketConnected]);
+
+  // Polling for agent messages
+  useEffect(() => {
+    if (!selectedTicket?._id) return undefined;
+    const tid = String(selectedTicket._id);
+    
+    const interval = setInterval(async () => {
+      try {
+        const res = await axiosInstance.get(`/tickets/${tid}/messages`);
+        const newMsgs = res.data?.data?.messages ?? [];
+        setMessages((prev) => {
+          if (JSON.stringify(prev) !== JSON.stringify(newMsgs)) {
+            return newMsgs;
+          }
+          return prev;
+        });
+      } catch (e) {
+        console.error("Agent polling error:", e);
+      }
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [selectedTicket?._id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -151,15 +186,32 @@ export default function AgentDashboard() {
 
   async function handleSendReply(event) {
     event.preventDefault();
-    if (!selectedTicket || !replyText.trim() || sending) return;
+    const messageContent = replyText.trim();
+    if (!selectedTicket || !messageContent || sending) return;
+    
     setSending(true);
+    setReplyText(""); // Clear input immediately
+    
     try {
-      await axiosInstance.post(`/tickets/${selectedTicket._id}/messages`, { content: replyText.trim() });
-      setReplyText("");
-      const res = await axiosInstance.get(`/tickets/${selectedTicket._id}/messages`);
-      setMessages(res.data?.data?.messages ?? []);
-    } catch (err) { console.error(err); }
-    finally { setSending(false); }
+      const res = await axiosInstance.post(`/tickets/${selectedTicket._id}/messages`, { content: messageContent });
+      const newMessage = res.data?.data?.message;
+      
+      if (newMessage) {
+        setMessages(prev => {
+          if (prev.some(m => m._id === newMessage._id)) return prev;
+          return [...prev, newMessage];
+        });
+      } else {
+        // Fallback fetch
+        const mRes = await axiosInstance.get(`/tickets/${selectedTicket._id}/messages`);
+        setMessages(mRes.data?.data?.messages ?? []);
+      }
+    } catch (err) { 
+      console.error(err);
+      setReplyText(messageContent); // Restore if failed
+    } finally { 
+      setSending(false); 
+    }
   }
 
   function handleBellClick() {
@@ -251,8 +303,14 @@ export default function AgentDashboard() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-5 space-y-4">
-                {messages.length === 0 ? (
+              <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-5 space-y-4 relative min-h-[200px]">
+                {messagesLoading && messages.length === 0 ? (
+                  <div className="space-y-4">
+                    <div className="h-16 w-3/4 bg-gray-200 animate-pulse rounded-lg opacity-20" />
+                    <div className="h-16 w-3/4 bg-gray-200 animate-pulse rounded-lg ml-auto opacity-20" />
+                    <div className="h-16 w-3/4 bg-gray-200 animate-pulse rounded-lg opacity-20" />
+                  </div>
+                ) : messages.length === 0 ? (
                   <EmptyState icon="💬" title="No messages yet" description="Send the first reply below." />
                 ) : (
                   messages.map((msg) => (

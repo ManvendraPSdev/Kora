@@ -14,7 +14,7 @@ const statusOptions = ["open", "in_progress", "escalated", "resolved", "closed"]
 const priorityOptions = ["low", "medium", "high", "urgent"];
 const userRoleOptions = ["agent", "customer", "admin"];
 
-function AuthView({ authMode, setAuthMode, loading, error, forms, onAuthSubmit, onForgotPassword, onResetPassword, setForms }) {
+function AuthView({ authMode, setAuthMode, loading, error, forms, onAuthSubmit, setForms }) {
   const role = forms.authRole || "admin";
   const submitLabel = authMode === "login" ? "Sign In" : role === "admin" ? "Create Tenant" : "Register";
 
@@ -154,16 +154,6 @@ function AuthView({ authMode, setAuthMode, loading, error, forms, onAuthSubmit, 
             </Button>
           </form>
 
-          <div className="mt-10 pt-10 border-t border-white/5 space-y-6">
-            <h4 className="text-sm font-black text-white tracking-wide uppercase">Password Recovery</h4>
-            <div className="grid gap-4">
-              <FormField label="Recovery Email" id="reset-email" placeholder="Email" value={forms.reset.email} onChange={(v) => setForms((s) => ({ ...s, reset: { ...s.reset, email: v } }))} />
-              <div className="flex gap-3">
-                <Button variant="ghost" size="sm" onClick={onForgotPassword} className="flex-1">Request Reset</Button>
-                <Button variant="secondary" size="sm" onClick={() => setAuthMode("reset")} className="flex-1">Reset Page</Button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -191,6 +181,20 @@ function Section({ title, icon, children, className = "" }) {
 
 /* ─── Workspace View ────────────────────────────────────── */
 function WorkspaceView({ role, user, workspace, forms, setForms, onLogout, onCreateTicket, onSelectTicket, onSendTicketMessage, onUpdateStatus, onSuggestReplies, onStartChat, onSendChat, onCreateKb, onCreateUser }) {
+  const chatEndRef = import.meta.env.SSR ? null : { current: null }; // Fallback for ref in SSR if needed, but we are in client
+  const chatContainerRef = { current: null };
+  
+  const scrollToBottom = () => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  // Auto-scroll to bottom on new messages
+  if (!import.meta.env.SSR) {
+    // We can use a simple effect here if this was a standalone component, 
+    // but since it's inside AppView, we'll handle it carefully.
+  }
   const nav = ["tickets", "chat", "kb"];
   if (role === "admin" || role === "super_admin") nav.unshift("overview");
   if (role === "admin" || role === "super_admin") nav.push("users");
@@ -312,21 +316,23 @@ function WorkspaceView({ role, user, workspace, forms, setForms, onLogout, onCre
                     className="space-y-6"
                   >
                     <Section title={`Ticket Details — #${selectedTicket.ticketNumber}`} icon="📎">
-                      <div className="flex flex-wrap items-center gap-4 mb-8 p-4 bg-bg-darker rounded-2xl border border-white/5">
-                        <div className="space-y-1 pr-4 border-r border-white/10">
-                          <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">Status</p>
-                          <FormSelect
-                            id="tk-status"
-                            value={selectedTicket.status}
-                            options={statusOptions}
-                            onChange={(v) => onUpdateStatus(selectedTicket._id, v)}
-                          />
+                      {(role === "admin" || role === "agent" || role === "super_admin") && (
+                        <div className="flex flex-wrap items-center gap-4 mb-8 p-4 bg-bg-darker rounded-2xl border border-white/5">
+                          <div className="space-y-1 pr-4 border-r border-white/10">
+                            <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">Status</p>
+                            <FormSelect
+                              id="tk-status"
+                              value={selectedTicket.status}
+                              options={statusOptions}
+                              onChange={(v) => onUpdateStatus(selectedTicket._id, v)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">Actions</p>
+                            <Button variant="ghost" size="sm" onClick={onSuggestReplies}>✨ Smart Replies</Button>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <p className="text-[10px] font-black text-text-muted uppercase tracking-widest">Actions</p>
-                          <Button variant="ghost" size="sm" onClick={onSuggestReplies}>✨ Smart Replies</Button>
-                        </div>
-                      </div>
+                      )}
 
                       {workspace.suggestedReplies.length > 0 && (
                         <div className="mb-8 space-y-3">
@@ -386,7 +392,15 @@ function WorkspaceView({ role, user, workspace, forms, setForms, onLogout, onCre
                 <h1 className="text-3xl font-black text-white tracking-tight">AI Workspace</h1>
                 <p className="text-text-muted font-medium">Interactive intelligent assistance</p>
               </div>
-              <Button onClick={onStartChat} variant="secondary">New Session</Button>
+              <Button 
+                onClick={onStartChat} 
+                variant="secondary"
+                whileHover={{}}
+                whileTap={{ scale: 0.95 }}
+                className="!shadow-none !bg-surface-raised active:!bg-surface-active rounded-xl"
+              >
+                New Session
+              </Button>
             </div>
 
             <Section className="relative overflow-hidden">
@@ -402,7 +416,7 @@ function WorkspaceView({ role, user, workspace, forms, setForms, onLogout, onCre
                   </div>
                 )}
                 
-                <div className="space-y-4 h-[500px] overflow-y-auto no-scrollbar py-2">
+                <div className="space-y-6 h-[600px] overflow-y-auto no-scrollbar py-4 px-2 scroll-smooth">
                   {workspace.chatMessages.length === 0
                     ? <EmptyState icon="🤖" title="How can I help you today?" description="Ask me anything about your tickets, workflows, or data." />
                     : workspace.chatMessages.map((m, idx) => (
@@ -423,13 +437,42 @@ function WorkspaceView({ role, user, workspace, forms, setForms, onLogout, onCre
                       <span className="text-[10px] font-black text-brand uppercase tracking-widest">Neural Processing...</span>
                     </motion.div>
                   )}
+                  {/* Scroll Anchor */}
+                  <div ref={(el) => { if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" }); }} />
                 </div>
 
-                <form className="pt-6 border-t border-white/5 space-y-4" onSubmit={onSendChat}>
-                  <div className="relative group">
-                    <FormTextarea label="Message AI" id="chat-msg" rows={3} placeholder="Ask anything..." value={forms.chat} onChange={(v) => setForms((s) => ({ ...s, chat: v }))} />
-                    <Button type="submit" variant="primary" className="absolute bottom-4 right-4 shadow-2xl">
-                      Process ✨
+                <form 
+                  className="pt-6 border-t border-white/5" 
+                  onSubmit={onSendChat}
+                >
+                  <div className="flex items-center gap-2 bg-bg-darker p-2 rounded-xl border border-border transition-all focus-within:border-brand/30">
+                    <div className="flex-1">
+                      <FormTextarea 
+                        id="chat-msg" 
+                        rows={1} 
+                        minimal={true}
+                        placeholder="Type your message here..." 
+                        value={forms.chat} 
+                        onChange={(v) => setForms((s) => ({ ...s, chat: v }))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            onSendChat(e);
+                          }
+                        }}
+                      />
+                    </div>
+                    <Button 
+                      type="submit" 
+                      variant="primary" 
+                      whileHover={{}}
+                      whileTap={{ scale: 0.95 }}
+                      className="h-10 w-10 !p-0 flex items-center justify-center rounded-lg shrink-0 !bg-bg-darker !text-brand !shadow-none border border-border"
+                      disabled={!forms.chat.trim() || workspace.loading}
+                    >
+                      <svg className="w-5 h-5 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
                     </Button>
                   </div>
                 </form>
