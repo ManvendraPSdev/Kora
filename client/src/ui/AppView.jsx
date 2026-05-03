@@ -277,9 +277,6 @@ function WorkspaceView({ role, user, workspace, forms, setForms, onLogout, onCre
                   <FormTextarea label="Detailed Description" id="tk-desc" placeholder="Please provide as much detail as possible..." value={forms.ticket.description} onChange={(v) => setForms((s) => ({ ...s, ticket: { ...s.ticket, description: v } }))} />
                   <div className="grid grid-cols-2 gap-4">
                     <FormSelect label="Priority Level" id="tk-priority" value={forms.ticket.priority} options={priorityOptions} onChange={(v) => setForms((s) => ({ ...s, ticket: { ...s.ticket, priority: v } }))} />
-                    {role !== "customer" && (
-                      <FormField label="Target Customer ID" id="tk-cust" placeholder="CUST-123" value={forms.ticket.customerId} onChange={(v) => setForms((s) => ({ ...s, ticket: { ...s.ticket, customerId: v } }))} />
-                    )}
                   </div>
                   <Button type="submit" variant="primary" size="lg" className="w-full">Initialize Ticket</Button>
                 </form>
@@ -289,7 +286,7 @@ function WorkspaceView({ role, user, workspace, forms, setForms, onLogout, onCre
                 {workspace.tickets.length === 0
                   ? <EmptyState icon="🎫" title="Inbox is clear" description="No active support tickets found." />
                   : (
-                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-1">
+                    <motion.div variants={containerVariants} initial="hidden" animate="show" className="space-y-1 max-h-[480px] overflow-y-auto pr-1 no-scrollbar">
                       {workspace.tickets.map((ticket) => (
                         <motion.div key={ticket._id} variants={itemVariants}>
                           <TicketCard 
