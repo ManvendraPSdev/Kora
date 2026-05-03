@@ -47,6 +47,24 @@ export default function AppNew() {
     bootstrapWorkspace().catch(() => {});
   }, [auth.token, bootstrapWorkspace]);
 
+  // Real-time message polling
+  useEffect(() => {
+    if (!auth.token || !workspace.selectedTicketId) return undefined;
+    
+    const interval = setInterval(() => {
+      workspace.pollTicketMessages(workspace.selectedTicketId).catch(() => {});
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [auth.token, workspace.selectedTicketId, workspace.pollTicketMessages]);
+
+  // Auto-start AI Chat session
+  useEffect(() => {
+    if (workspace.activeSection === "chat" && !workspace.chatSession && auth.token && !workspace.loading) {
+      workspace.startChatSession().catch(() => {});
+    }
+  }, [workspace.activeSection, workspace.chatSession, auth.token, workspace.loading, workspace.startChatSession]);
+
   const role = auth.user?.role;
 
   const [localError, setLocalError] = useState("");
@@ -156,8 +174,6 @@ export default function AppNew() {
         error={auth.error || workspace.error || localError}
         forms={forms}
         onAuthSubmit={handleAuthSubmit}
-        onForgotPassword={() => workspace.forgotPassword(forms.reset.email)}
-        onResetPassword={() => workspace.resetPassword(forms.reset)}
         setForms={setForms}
       />
     );

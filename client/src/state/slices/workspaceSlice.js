@@ -132,6 +132,15 @@ export const resetPasswordThunk = createAsyncThunk("workspace/resetPassword", as
   return "Password reset completed.";
 });
 
+export const pollTicketMessagesThunk = createAsyncThunk(
+  "workspace/pollTicketMessages",
+  async (ticketId, { getState }) => {
+    const token = withToken(getState);
+    const result = await ticketService.messages(ticketId, token);
+    return { ticketId, messages: result.messages || [] };
+  }
+);
+
 const workspaceSlice = createSlice({
   name: "workspace",
   initialState,
@@ -185,6 +194,13 @@ const workspaceSlice = createSlice({
         state.tickets = action.payload.tickets;
         state.success = "Status updated.";
       })
+      .addCase(pollTicketMessagesThunk.fulfilled, (state, action) => {
+        if (state.selectedTicketId === action.payload.ticketId) {
+          if (JSON.stringify(state.ticketMessages) !== JSON.stringify(action.payload.messages)) {
+            state.ticketMessages = action.payload.messages;
+          }
+        }
+      })
       .addCase(suggestRepliesThunk.fulfilled, (state, action) => {
         state.suggestedReplies = action.payload;
         state.success = "Suggestions generated.";
@@ -221,7 +237,8 @@ const workspaceSlice = createSlice({
         (action) =>
           action.type.startsWith("workspace/") &&
           action.type.endsWith("/pending") &&
-          action.type !== bootstrapWorkspaceThunk.pending.type,
+          action.type !== bootstrapWorkspaceThunk.pending.type &&
+          action.type !== pollTicketMessagesThunk.pending.type,
         (state) => {
           state.loading = true;
           state.error = "";

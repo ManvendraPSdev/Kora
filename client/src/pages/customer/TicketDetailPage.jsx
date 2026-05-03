@@ -38,6 +38,7 @@ export default function TicketDetailPage() {
 
   const socketRef = useRef(null);
   const bottomRef = useRef(null);
+  const [messagesLoading, setMessagesLoading] = useState(true);
 
   const ticketClosed = ticket && (ticket.status === "closed" || ticket.status === "resolved");
 
@@ -51,6 +52,7 @@ export default function TicketDetailPage() {
     let cancelled = false;
     (async () => {
       try {
+        setMessagesLoading(true);
         const [tRes, mRes] = await Promise.all([
           axiosInstance.get(`/tickets/${id}`),
           axiosInstance.get(`/tickets/${id}/messages`),
@@ -58,11 +60,37 @@ export default function TicketDetailPage() {
         if (cancelled) return;
         setTicket(tRes.data?.data?.ticket ?? null);
         setMessages(mRes.data?.data?.messages ?? []);
-      } catch (e) { console.error(e); }
-      finally { if (!cancelled) setLoading(false); }
+      } catch (e) { 
+        console.error(e); 
+      } finally { 
+        if (!cancelled) {
+          setLoading(false);
+          setMessagesLoading(false);
+        }
+      }
     })();
     return () => { cancelled = true; };
   }, [id, token]);
+
+  // Polling for messages as a fallback/enhancement
+  useEffect(() => {
+    if (!id || !token || ticketClosed) return undefined;
+    const interval = setInterval(async () => {
+      try {
+        const res = await axiosInstance.get(`/tickets/${id}/messages`);
+        const newMsgs = res.data?.data?.messages ?? [];
+        setMessages((prev) => {
+          if (JSON.stringify(prev) !== JSON.stringify(newMsgs)) {
+            return newMsgs;
+          }
+          return prev;
+        });
+      } catch (e) {
+        console.error("Polling error:", e);
+      }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [id, token, ticketClosed]);
 
   useEffect(() => {
     if (!id || !token) return undefined;
@@ -102,15 +130,32 @@ export default function TicketDetailPage() {
 
   async function handleSend(event) {
     event.preventDefault();
-    if (!body.trim() || sending || ticketClosed || !id) return;
+    const messageContent = body.trim();
+    if (!messageContent || sending || ticketClosed || !id) return;
+    
     setSending(true);
+    setBody(""); // Clear input immediately for better UX
+    
     try {
-      await axiosInstance.post(`/tickets/${id}/messages`, { content: body.trim() });
-      setBody("");
-      const res = await axiosInstance.get(`/tickets/${id}/messages`);
-      setMessages(res.data?.data?.messages ?? []);
-    } catch (e) { console.error(e); }
-    finally { setSending(false); }
+      const res = await axiosInstance.post(`/tickets/${id}/messages`, { content: messageContent });
+      const newMessage = res.data?.data?.message;
+      
+      if (newMessage) {
+        setMessages(prev => {
+          if (prev.some(m => m._id === newMessage._id)) return prev;
+          return [...prev, newMessage];
+        });
+      } else {
+        // Fallback re-fetch if message isn't in response
+        const mRes = await axiosInstance.get(`/tickets/${id}/messages`);
+        setMessages(mRes.data?.data?.messages ?? []);
+      }
+    } catch (e) { 
+      console.error(e);
+      setBody(messageContent); // Restore body if failed
+    } finally { 
+      setSending(false); 
+    }
   }
 
   const assignedName =
@@ -192,8 +237,14 @@ export default function TicketDetailPage() {
         </div>
 
         {/* Message thread */}
-        <div className="card p-4 flex flex-col gap-4 animate-fade-in">
-          {messages.length === 0 ? (
+        <div className="card p-4 flex flex-col gap-4 animate-fade-in relative min-h-[200px]">
+          {messagesLoading && messages.length === 0 ? (
+            <div className="flex flex-col gap-4">
+              <div className="h-16 w-3/4 bg-gray-200 animate-pulse rounded-lg self-start opacity-20" />
+              <div className="h-16 w-3/4 bg-gray-200 animate-pulse rounded-lg self-end opacity-20" />
+              <div className="h-16 w-3/4 bg-gray-200 animate-pulse rounded-lg self-start opacity-20" />
+            </div>
+          ) : messages.length === 0 ? (
             <EmptyState icon="💬" title="No messages yet" description="Send a message below to start the conversation." />
           ) : (
             messages.map((msg) => (
